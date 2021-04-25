@@ -67,33 +67,7 @@ impl Monitor {
         self.tx.take()
     }
 
-    async fn handle_client(&mut self, stream: TcpStream) -> Result<(), MirrorError> {
-        let client_addr = &stream.peer_addr().unwrap();
-        println!("Connection from client {:?}", &client_addr);
-        let bytes = Framed::new(stream, BytesCodec::new());
-        let (tx, mut rx) = bytes.split();
-
-        {
-            let mut state = self.shared.lock().await;
-            state.clients.push(tx);
-        }
-
-        loop {
-            match rx.next().await {
-
-                Some(Ok(_msg)) => { /* Ignore anything sent by the monitors */ },
-                Some(Err(e)) => {
-                    return Err(MirrorError::from(e));
-                },
-                None => {
-                    println!("Client {:?} disconnected", &client_addr);
-                    return Ok(())
-                }
-            }
-        }
-    }
-
-    pub async fn process(mut self) -> Result<(), MirrorError> {
+    pub async fn process(self) -> Result<(), MirrorError> {
         let listen_to = format!("0.0.0.0:{}", self.port);
         let socket = TcpListener::bind(&listen_to).await?;
         println!("Listening on {}", &listen_to);
@@ -101,7 +75,33 @@ impl Monitor {
         loop {
             if let Ok((stream, address)) = socket.accept().await {
                 println!("Connection from: {}", address);
-                self.handle_client(stream).await?;
+                tokio::spawn(handle_client(stream, self.shared.clone()));
+            }
+        }
+    }
+}
+
+async fn handle_client(stream: TcpStream, shared: Arc<Mutex<Shared>>) -> Result<(), MirrorError> {
+    let client_addr = &stream.peer_addr().unwrap();
+    println!("Connection from client {:?}", &client_addr);
+    let bytes = Framed::new(stream, BytesCodec::new());
+    let (tx, mut rx) = bytes.split();
+
+    {
+        let mut state = shared.lock().await;
+        state.clients.push(tx);
+    }
+
+    loop {
+        match rx.next().await {
+
+            Some(Ok(_msg)) => { /* Ignore anything sent by the monitors */ },
+            Some(Err(e)) => {
+                return Err(MirrorError::from(e));
+            },
+            None => {
+                println!("Client {:?} disconnected", &client_addr);
+                return Ok(())
             }
         }
     }
