@@ -7,18 +7,16 @@ use bytes::Bytes;
 
 pub struct Server {
     port: u16,
-    read_only: bool,
     channel_local_endpoint:  ChannelEndpoint<Bytes>,
     channel_remote_endpoint: Option<ChannelEndpoint<Bytes>>,
 }
 
 impl Server {
-    pub async fn try_new(port: u16, read_only: bool) -> Result<Self, MirrorError> {
+    pub async fn try_new(port: u16) -> Result<Self, MirrorError> {
         let (endpoint_a, endpoint_b) = bidirectional_channel();
 
         Ok(Server {
             port,
-            read_only,
             channel_local_endpoint: endpoint_a,
             channel_remote_endpoint: Some(endpoint_b),
         })
@@ -37,9 +35,7 @@ impl Server {
                     result = bytes.next() => {
                         match result {
                             Some(Ok(msg)) => {
-                                if !self.read_only {
-                                    self.channel_local_endpoint.tx.send(msg.freeze()).await?;
-                                }
+                                self.channel_local_endpoint.tx.send(msg.freeze()).await?;
                             }
                             Some(Err(e)) => {
                                 return Err(MirrorError::from(e));
