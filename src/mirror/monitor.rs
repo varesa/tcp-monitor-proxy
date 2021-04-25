@@ -41,11 +41,18 @@ impl Monitor {
             loop {
                 if let Some(msg) = rx.next().await {
                     let mut state = shared_forwarder.lock().await;
-                    for client in &mut state.clients {
+                    let mut client_errors = Vec::new();
+                    for (pos, client) in &mut state.clients.iter_mut().enumerate() {
                         if let Err(e) = client.send(msg.clone()).await {
                             // Do not let a single monitor affect the larger system
                             println!("Failed to write to monitor: {}", e);
+                            client_errors.push(pos);
                         }
+                    }
+                    // Remove clients with errors, starting from the biggest ID
+                    // to not change indices mid-loop
+                    for failed_client in client_errors.iter().rev() {
+                        let _sink = state.clients.remove(*failed_client);
                     }
                 } else {
                     panic!("Lost end of monitor channel");
