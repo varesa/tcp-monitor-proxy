@@ -35,11 +35,11 @@ impl Mirror {
             loop {
                 tokio::select! {
                     Some(msg) = server_endpoint.rx.next() => {
-                        println!("C->S: {:?}", msg);
+                        //println!("C->S: {:?}", msg);
                         client_endpoint.tx.send(msg).await?;
                     }
                     Some(msg) = client_endpoint.rx.next() => {
-                        println!("S->C: {:?}", msg);
+                        //println!("S->C: {:?}", msg);
                         server_endpoint.tx.send(msg.clone()).await?;
                         monitor_endpoint.send(msg).await?;
                     }
