@@ -95,15 +95,12 @@ impl Monitor {
 
     pub async fn process(mut self) -> Result<(), MirrorError> {
         let listen_to = format!("0.0.0.0:{}", self.port);
+        let socket = TcpListener::bind(&listen_to).await?;
+        println!("Listening on {}", &listen_to);
+
         loop {
-            let socket = TcpListener::bind(&listen_to).await?;
-            println!("Listening on {}", &listen_to);
-
-            let connection = socket.accept().await;
-            if let Ok((stream, address)) = connection {
-                drop(socket);
+            if let Ok((stream, address)) = socket.accept().await {
                 println!("Connection from: {}", address);
-
                 self.handle_client(stream).await?;
             }
         }
