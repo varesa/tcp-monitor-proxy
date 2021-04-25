@@ -58,8 +58,9 @@ impl Server {
 
             let connection = socket.accept().await;
             if let Ok((stream, address)) = connection {
+                // We only want a single RW-connection at a time, so we drop (=close)
+                // the listening socket for the period of the active connection
                 drop(socket);
-                println!("Connection from: {}", address);
 
                 self.handle_client(stream).await?;
             }
